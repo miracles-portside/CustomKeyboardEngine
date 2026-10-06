@@ -14,6 +14,8 @@ import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.os.Handler
 import android.os.Looper
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import java.io.File
 
 class CustomKeyboardService : InputMethodService() {
@@ -56,6 +58,17 @@ class CustomKeyboardService : InputMethodService() {
     private lateinit var settings: KeyboardSettings
 
     private var lastSettingsError: String? = null
+
+    private val homeLauncherPackages = setOf(
+        "com.mi.appfinder",                          // MIUI home search (confirmed)
+        "com.miui.home",                             // MIUI launcher (fallback)
+        "com.mi.android.globallauncher",             // Xiaomi Global launcher
+        "com.google.android.apps.nexuslauncher",     // Pixel launcher
+        "com.google.android.googlequicksearchbox",   // Google Search
+        "com.android.launcher3"                      // AOSP launcher
+    )
+
+    private var isTransparentMode = false
 
 
     companion object {
@@ -103,14 +116,17 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
-        if (!restarting){
-            //Log.i(TAG, "Starting input view. Reloading layouts.")
+        if (!restarting) {
             reloadKeyboardLayouts()
             recreateKeyboards()
-        } else {
-            //Log.i(TAG, "Restarting input view on the same editor. NOT Reloading layouts.")
         }
         super.onStartInputView(info, restarting)
+
+        val pkg = info?.packageName ?: ""
+        val shouldBeTransparent = !isFloatingKeyboard && pkg in homeLauncherPackages
+        isTransparentMode = shouldBeTransparent
+        val target = shouldBeTransparent
+        inputView?.post { applyTransparencyMode(target) }
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
@@ -335,6 +351,56 @@ class CustomKeyboardService : InputMethodService() {
 
     ////////////////////////////////////////////
     // Helper functions for closing keyboards
+    private fun applyTransparencyMode(transparent: Boolean) {
+        window?.window?.let { w ->
+            if (transparent) {
+                w.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                w.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    w.isNavigationBarContrastEnforced = false
+                }
+                w.navigationBarColor = Color.TRANSPARENT
+                w.statusBarColor = Color.TRANSPARENT
+            } else {
+                val solidBg = if ((resources.configuration.uiMode and
+                        android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                        android.content.res.Configuration.UI_MODE_NIGHT_YES) {
+                    0xFF1C1C1E.toInt()
+                } else {
+                    0xFFD1D1D6.toInt()
+                }
+                w.setBackgroundDrawable(ColorDrawable(solidBg))
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    w.isNavigationBarContrastEnforced = true
+                }
+                w.navigationBarColor = solidBg
+            }
+        }
+
+        if (transparent) {
+            inputView?.setBackgroundColor(Color.TRANSPARENT)
+            (inputView?.parent as? ViewGroup)?.setBackgroundColor(Color.TRANSPARENT)
+            keyboardView?.background = null
+            serviceKeyboardView?.background = null
+        } else {
+            // Restore opaque background when back in a normal app
+            val bg = if ((resources.configuration.uiMode and
+                    android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                    android.content.res.Configuration.UI_MODE_NIGHT_YES) {
+                0xFF1C1C1E.toInt()  // dark
+            } else {
+                0xFFD1D1D6.toInt()  // light
+            }
+            inputView?.setBackgroundColor(bg)
+            (inputView?.parent as? ViewGroup)?.setBackgroundColor(bg)
+        }
+
+        keyboardView?.setKeyboardTransparent(transparent)
+        serviceKeyboardView?.setKeyboardTransparent(transparent)
+
+        invalidateAllKeysOnAllKeyboards()
+    }
+
     private fun closeAllKeyboards() {
         closeStandardKeyboard()
         closeServiceKeyboard()

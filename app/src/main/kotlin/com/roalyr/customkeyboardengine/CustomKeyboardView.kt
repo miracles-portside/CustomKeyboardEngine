@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
@@ -60,6 +61,9 @@ class CustomKeyboardView @JvmOverloads constructor(
     private var isKeyRepeated = false
     private var isLongPressHandled = false
     private var downKeyIndex = -1
+
+    // Transparency mode for home-screen search.
+    private var isKeyboardTransparent = false
 
     private var repeatKeyRunnable: Runnable? = null
 
@@ -385,6 +389,17 @@ class CustomKeyboardView @JvmOverloads constructor(
     }
 
 
+    fun setKeyboardTransparent(transparent: Boolean) {
+        if (isKeyboardTransparent == transparent) return
+        isKeyboardTransparent = transparent
+        invalidate()
+    }
+
+    private fun Int.withAlphaFraction(fraction: Float): Int {
+        val a = (Color.alpha(this) * fraction).toInt().coerceIn(0, 255)
+        return Color.argb(a, Color.red(this), Color.green(this), Color.blue(this))
+    }
+
     ///////////////////////////////////////
     // DRAWING LOGIC
     override fun onDraw(canvas: Canvas) {
@@ -407,17 +422,22 @@ class CustomKeyboardView @JvmOverloads constructor(
             }
         }
 
-        val keyboardBackgroundColor = if (isDarkTheme) adjustColor(accentColor, 0.2f, 0.6f) else adjustColor(accentColor, 0.99f, 0.2f)
-        val keyBackgroundColor = if (isDarkTheme) adjustColor(accentColor, 0.25f, 0.4f) else adjustColor(accentColor, 1.0f, 0.1f)
-        val keyModifierBackgroundColor = if (isDarkTheme) adjustColor(accentColor, 1.2f, 0.7f) else adjustColor(accentColor, 1.0f, 1.0f)
-        val keyLabelTextColor = if (isDarkTheme) Constants.TEXT_COLOR_DARK_THEME else Constants.TEXT_COLOR_LIGHT_THEME
-        val keyLabelLongPressTextColor = if (isDarkTheme) adjustColor(accentColor, 1.4f, 0.9f) else adjustColor(accentColor, 0.95f, 1.0f)
+        var keyboardBackgroundColor = if (isDarkTheme) 0xFF1C1C1E.toInt() else 0xFFD1D1D6.toInt()
+        var keyBackgroundColor = if (isDarkTheme) 0xFF2C2C2E.toInt() else 0xFFFFFFFF.toInt()
+        var keyModifierBackgroundColor = if (isDarkTheme) 0xFF48484A.toInt() else 0xFFAEAEB2.toInt()
+        if (isKeyboardTransparent) {
+            keyboardBackgroundColor = Color.TRANSPARENT
+            keyBackgroundColor = keyBackgroundColor.withAlphaFraction(0.95f)
+            keyModifierBackgroundColor = keyModifierBackgroundColor.withAlphaFraction(0.85f)
+        }
+        val keyLabelTextColor = if (isDarkTheme) 0xFFFFFFFF.toInt() else 0xFF000000.toInt()
+        val keyLabelLongPressTextColor = if (isDarkTheme) 0xFF8E8E93.toInt() else 0xFF6D6D72.toInt()
 
         // Keep those values the same as text or background colors.
         val keyIconColor = keyLabelTextColor
-        val keyModifierIconColor = keyboardBackgroundColor
-        val keyModifierLabelTextColor = keyboardBackgroundColor
-        val keyModifierSmallLabelTextColor = keyboardBackgroundColor
+        val keyModifierIconColor = if (isDarkTheme) 0xFFFFFFFF.toInt() else 0xFF1C1C1E.toInt()
+        val keyModifierLabelTextColor = if (isDarkTheme) 0xFFFFFFFF.toInt() else 0xFF1C1C1E.toInt()
+        val keyModifierSmallLabelTextColor = if (isDarkTheme) 0xFFFFFFFF.toInt() else 0xFF1C1C1E.toInt()
 
 
         // Draw keyboard background

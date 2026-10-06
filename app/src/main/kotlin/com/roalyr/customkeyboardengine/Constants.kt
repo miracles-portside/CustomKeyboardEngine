@@ -7,6 +7,7 @@ class Constants {
         const val LAYOUT_LANGUAGE_DEFAULT = "keyboard_en_default"
         const val LAYOUT_SERVICE_DEFAULT = "keyboard_service_default"
         const val LAYOUT_CLIPBOARD_DEFAULT = "keyboard_clipboard_default"
+        const val LAYOUT_EMOJI_DEFAULT = "keyboard_emoji_default"
         const val REFERENCE_DEFAULT = "reference.md"
 
         // Keyboard internals.
@@ -39,6 +40,8 @@ class Constants {
         const val KEYCODE_CLIPBOARD_ENTRY = -22
         const val KEYCODE_CLIPBOARD_ERASE = -23
         const val KEYCODE_OPEN_CLIPBOARD = -24
+        const val KEYCODE_OPEN_EMOJI = -25
+        const val KEYCODE_EMOJI_ENTRY = -26
 
         // Default values.
         const val DEFAULT_KEY_HEIGHT = 40f // Logical DP

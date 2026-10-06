@@ -1,0 +1,245 @@
+{
+  "defaultKeyWidth": 12.5,
+  "defaultKeyHeight": 40,
+  "rows": [
+    {
+      "defaultKeyWidth": 12.5,
+      "keys": [
+        {
+          "label": "😀",
+          "keyCode": -26
+        },
+        {
+          "label": "😃",
+          "keyCode": -26
+        },
+        {
+          "label": "😄",
+          "keyCode": -26
+        },
+        {
+          "label": "😁",
+          "keyCode": -26
+        },
+        {
+          "label": "😆",
+          "keyCode": -26
+        },
+        {
+          "label": "😅",
+          "keyCode": -26
+        },
+        {
+          "label": "😂",
+          "keyCode": -26
+        },
+        {
+          "label": "🤣",
+          "keyCode": -26
+        }
+      ]
+    },
+    {
+      "defaultKeyWidth": 12.5,
+      "keys": [
+        {
+          "label": "😊",
+          "keyCode": -26
+        },
+        {
+          "label": "😇",
+          "keyCode": -26
+        },
+        {
+          "label": "🙂",
+          "keyCode": -26
+        },
+        {
+          "label": "🙃",
+          "keyCode": -26
+        },
+        {
+          "label": "😉",
+          "keyCode": -26
+        },
+        {
+          "label": "😌",
+          "keyCode": -26
+        },
+        {
+          "label": "😍",
+          "keyCode": -26
+        },
+        {
+          "label": "🥰",
+          "keyCode": -26
+        }
+      ]
+    },
+    {
+      "defaultKeyWidth": 12.5,
+      "keys": [
+        {
+          "label": "😘",
+          "keyCode": -26
+        },
+        {
+          "label": "😗",
+          "keyCode": -26
+        },
+        {
+          "label": "😙",
+          "keyCode": -26
+        },
+        {
+          "label": "😚",
+          "keyCode": -26
+        },
+        {
+          "label": "😋",
+          "keyCode": -26
+        },
+        {
+          "label": "😛",
+          "keyCode": -26
+        },
+        {
+          "label": "😝",
+          "keyCode": -26
+        },
+        {
+          "label": "😜",
+          "keyCode": -26
+        }
+      ]
+    },
+    {
+      "defaultKeyWidth": 12.5,
+      "keys": [
+        {
+          "label": "🤗",
+          "keyCode": -26
+        },
+        {
+          "label": "🤔",
+          "keyCode": -26
+        },
+        {
+          "label": "🤨",
+          "keyCode": -26
+        },
+        {
+          "label": "😐",
+          "keyCode": -26
+        },
+        {
+          "label": "😑",
+          "keyCode": -26
+        },
+        {
+          "label": "😶",
+          "keyCode": -26
+        },
+        {
+          "label": "🙄",
+          "keyCode": -26
+        },
+        {
+          "label": "😏",
+          "keyCode": -26
+        }
+      ]
+    },
+    {
+      "defaultKeyWidth": 12.5,
+      "keys": [
+        {
+          "label": "👍",
+          "keyCode": -26
+        },
+        {
+          "label": "👎",
+          "keyCode": -26
+        },
+        {
+          "label": "👌",
+          "keyCode": -26
+        },
+        {
+          "label": "✌️",
+          "keyCode": -26
+        },
+        {
+          "label": "🤞",
+          "keyCode": -26
+        },
+        {
+          "label": "🤟",
+          "keyCode": -26
+        },
+        {
+          "label": "🤘",
+          "keyCode": -26
+        },
+        {
+          "label": "👏",
+          "keyCode": -26
+        }
+      ]
+    },
+    {
+      "defaultKeyWidth": 12.5,
+      "keys": [
+        {
+          "label": "❤️",
+          "keyCode": -26
+        },
+        {
+          "label": "🧡",
+          "keyCode": -26
+        },
+        {
+          "label": "💛",
+          "keyCode": -26
+        },
+        {
+          "label": "💚",
+          "keyCode": -26
+        },
+        {
+          "label": "💙",
+          "keyCode": -26
+        },
+        {
+          "label": "💜",
+          "keyCode": -26
+        },
+        {
+          "label": "🖤",
+          "keyCode": -26
+        },
+        {
+          "label": "🤍",
+          "keyCode": -26
+        }
+      ]
+    },
+    {
+      "keys": [
+        {
+          "label": "ABC",
+          "keyCode": -25,
+          "isModifier": true,
+          "keyWidth": 50
+        },
+        {
+          "label": "⌫",
+          "keyCode": 67,
+          "isModifier": true,
+          "isRepeatable": true,
+          "keyWidth": 50
+        }
+      ]
+    }
+  ]
+}

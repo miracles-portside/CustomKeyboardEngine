@@ -231,7 +231,7 @@
                     "isModifier": true
                 },
                 {
-                    "label": "\u23b5",
+                    "label": "⎵",
                     "keyCode": 62,
                     "keyWidth": 30,
                     "keyHeight": 93,
@@ -239,7 +239,7 @@
                 },
                 {
                     "icon": "@drawable/ic_emoji",
-                    "keyCode": -1,
+                    "keyCode": -25,
                     "isModifier": true
                 },
                 {

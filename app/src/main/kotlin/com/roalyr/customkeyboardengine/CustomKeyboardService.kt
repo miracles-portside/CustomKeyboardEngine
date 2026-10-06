@@ -54,6 +54,7 @@ class CustomKeyboardService : InputMethodService() {
         updateClipboardMap() // Reflect updates in your clipboard keys
     }
     private var isClipboardOpen = false
+    private var isEmojiOpen = false
 
     private lateinit var settings: KeyboardSettings
 
@@ -70,6 +71,7 @@ class CustomKeyboardService : InputMethodService() {
 
     private var isTransparentMode = false
     private var lastSpaceTime: Long = 0L
+    private var lastCommittedChar: Char? = null
     private var isEffectiveDark = false
 
     // Apps that are always dark regardless of system theme.
@@ -140,12 +142,19 @@ class CustomKeyboardService : InputMethodService() {
         super.onConfigurationChanged(newConfig)
     }
 
+    private fun isSentenceEnd(c: Char?): Boolean {
+        return c == '.' || c == '!' || c == '?' || c == '\n'
+    }
+
     private fun shouldAutoCapitalize(): Boolean {
+        // Prefer local state — the input connection is async and lags behind
+        // by one keypress, which caused double-capitalization.
+        lastCommittedChar?.let { return isSentenceEnd(it) }
         val ic = currentInputConnection ?: return false
         val before = ic.getTextBeforeCursor(2, 0)?.toString() ?: return true
         if (before.isEmpty()) return true
         val last = before.trimEnd().lastOrNull() ?: return true
-        return last == '.' || last == '!' || last == '?' || last == '\n'
+        return isSentenceEnd(last)
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
@@ -223,16 +232,22 @@ class CustomKeyboardService : InputMethodService() {
         keyboardView: CustomKeyboardView?,
         isFloating: Boolean
     ): CustomKeyboardView? {
-        val layout = if (isClipboardOpen) getClipboardLayout() else getLanguageLayout()
+        val layout = when {
+            isClipboardOpen -> getClipboardLayout()
+            isEmojiOpen -> getEmojiLayout()
+            else -> getLanguageLayout()
+        }
 
         return layout?.let { (customKeyboard) ->
             keyboardView?.updateKeyboard(customKeyboard)
             keyboardView?.updateSettings(settings)
 
-            // Initialize and synchronize clipboard keys
-            val clipboardKeys = customKeyboard.getAllKeys().filter { it.keyCode == Constants.KEYCODE_CLIPBOARD_ENTRY }
-            CustomKeyboardClipboard.initializeClipboardKeys(clipboardKeys.map { it.id })
-            synchronizeClipboardKeys() // Synchronize right after initializing keys
+            // Initialize and synchronize clipboard keys (clipboard mode only)
+            if (isClipboardOpen) {
+                val clipboardKeys = customKeyboard.getAllKeys().filter { it.keyCode == Constants.KEYCODE_CLIPBOARD_ENTRY }
+                CustomKeyboardClipboard.initializeClipboardKeys(clipboardKeys.map { it.id })
+                synchronizeClipboardKeys()
+            }
 
 
             if (keyboardView != null) {
@@ -346,7 +361,15 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     private fun toggleClipboardLayout() {
-        isClipboardOpen = !isClipboardOpen // Toggle the current state
+        isClipboardOpen = !isClipboardOpen
+        if (isClipboardOpen) isEmojiOpen = false
+        reloadKeyboardLayouts()
+        recreateKeyboards()
+    }
+
+    private fun toggleEmojiLayout() {
+        isEmojiOpen = !isEmojiOpen
+        if (isEmojiOpen) isClipboardOpen = false
         reloadKeyboardLayouts()
         recreateKeyboards()
     }
@@ -363,6 +386,14 @@ class CustomKeyboardService : InputMethodService() {
             Log.w(TAG, "Clipboard layout not found.")
         }
         return clipboardLayout
+    }
+
+    private fun getEmojiLayout(): Pair<CustomKeyboard, Boolean>? {
+        val emojiLayout = serviceLayouts[Constants.LAYOUT_EMOJI_DEFAULT]
+        if (emojiLayout == null) {
+            Log.w(TAG, "Emoji layout not found.")
+        }
+        return emojiLayout
     }
 
     private fun switchKeyboardMode() {
@@ -628,6 +659,7 @@ class CustomKeyboardService : InputMethodService() {
                                 currentInputConnection?.deleteSurroundingText(1, 0)
                                 currentInputConnection?.commitText(". ", 1)
                                 lastSpaceTime = 0L
+                                lastCommittedChar = '.'
                                 if (shouldAutoCapitalize()) {
                                     isShiftPressed = true
                                     metaState = metaState or KeyEvent.META_SHIFT_ON
@@ -636,9 +668,12 @@ class CustomKeyboardService : InputMethodService() {
                                 return
                             }
                             lastSpaceTime = now
+                            lastCommittedChar = ' '
                         }
 
                         handleKey(code, label)
+                        // Track what we just committed so auto-cap is instant, not async
+                        lastCommittedChar = label?.firstOrNull()
                         resetMetaStates()
                         // Auto-capitalize the next sentence
                         if (shouldAutoCapitalize()) {
@@ -752,6 +787,15 @@ class CustomKeyboardService : InputMethodService() {
                 }
                 Constants.KEYCODE_OPEN_CLIPBOARD -> {
                     toggleClipboardLayout()
+                }
+                Constants.KEYCODE_OPEN_EMOJI -> {
+                    toggleEmojiLayout()
+                }
+                Constants.KEYCODE_EMOJI_ENTRY -> {
+                    val text = label?.toString().orEmpty()
+                    if (text.isNotEmpty()) {
+                        currentInputConnection.commitText(text, 1)
+                    }
                 }
 
             }

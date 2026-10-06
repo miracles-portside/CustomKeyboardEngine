@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
 import android.graphics.RectF
@@ -64,10 +65,12 @@ class CustomKeyboardView @JvmOverloads constructor(
 
     // Transparency mode for home-screen search.
     private var isKeyboardTransparent = false
+    private var themeOverride: Boolean? = null  // null = follow system, true = dark, false = light
 
     private var repeatKeyRunnable: Runnable? = null
 
     private val activeKeys = mutableMapOf<Int, Key?>() // Track active keys by pointer ID
+    private val fadingKeys = mutableMapOf<Key, Long>() // key -> release timestamp for fade-out
 
     // Define specific meta key codes for shifting case.
     private val metaKeyCodes = arrayOf(
@@ -86,6 +89,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         private const val LONGPRESS_TIMEOUT = 250
         private const val REPEAT_DELAY = 50
         private const val REPEAT_START_DELAY = 250
+        private const val KEY_FADE_DURATION_MS = 180L
     }
 
     // INIT
@@ -144,8 +148,10 @@ class CustomKeyboardView @JvmOverloads constructor(
             scheduleLongPress(key)
         }
 
-        // Save key reference in the activeKeys map
+        // Save key reference in the activeKeys map (and cancel any pending fade)
         activeKeys[pointerId] = key
+        fadingKeys.remove(key)
+        invalidate()
     }
 
 
@@ -174,6 +180,10 @@ class CustomKeyboardView @JvmOverloads constructor(
         isLongPressHandled = false
         isKeyRepeated = false
         activeKeys.remove(pointerId)
+        if (key != null) {
+            fadingKeys[key] = System.currentTimeMillis()
+            invalidate()
+        }
     }
 
 
@@ -213,6 +223,7 @@ class CustomKeyboardView @JvmOverloads constructor(
         isKeyRepeated = false
         isLongPressHandled = false
         activeKeys.clear()
+        fadingKeys.clear()
     }
 
     override fun onDetachedFromWindow() {
@@ -395,6 +406,12 @@ class CustomKeyboardView @JvmOverloads constructor(
         invalidate()
     }
 
+    fun setThemeOverride(dark: Boolean?) {
+        if (themeOverride == dark) return
+        themeOverride = dark
+        invalidate()
+    }
+
     private fun Int.withAlphaFraction(fraction: Float): Int {
         val a = (Color.alpha(this) * fraction).toInt().coerceIn(0, 255)
         return Color.argb(a, Color.red(this), Color.green(this), Color.blue(this))
@@ -402,23 +419,38 @@ class CustomKeyboardView @JvmOverloads constructor(
 
     ///////////////////////////////////////
     // DRAWING LOGIC
+    private fun blendColors(from: Int, to: Int, t: Float): Int {
+        val u = 1f - t
+        return Color.argb(
+            (Color.alpha(from) * u + Color.alpha(to) * t).toInt(),
+            (Color.red(from) * u + Color.red(to) * t).toInt(),
+            (Color.green(from) * u + Color.green(to) * t).toInt(),
+            (Color.blue(from) * u + Color.blue(to) * t).toInt()
+        )
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val keyboard = keyboard ?: return
+
+        // Fade bookkeeping (iOS-style release animation)
+        val now = System.currentTimeMillis()
+        fadingKeys.entries.removeAll { now - it.value >= KEY_FADE_DURATION_MS }
+        if (fadingKeys.isNotEmpty()) postInvalidateOnAnimation()
 
         // Resolve accent color or fallback to a soft violet-purple
         val accentColor = ColorUtils.parseHexColor(settings.customAccentColor)
             ?: context.resolveThemeColor(android.R.attr.colorAccent, Constants.DEFAULT_ACCENT_COLOR)
 
         // Define colors based on theme
-        val isDarkTheme = when (settings.themeMode) {
+        val isDarkTheme = themeOverride ?: when (settings.themeMode) {
             Constants.THEME_MODE_DARK -> true
             Constants.THEME_MODE_LIGHT -> false
             else -> try {
                 (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
             } catch (e: Exception) {
                 Log.w("ThemeDetection", "Failed to detect UI mode, falling back to dark theme.")
-                true // Fallback to dark theme
+                true
             }
         }
 
@@ -439,8 +471,12 @@ class CustomKeyboardView @JvmOverloads constructor(
         val keyModifierLabelTextColor = if (isDarkTheme) 0xFFFFFFFF.toInt() else 0xFF1C1C1E.toInt()
         val keyModifierSmallLabelTextColor = if (isDarkTheme) 0xFFFFFFFF.toInt() else 0xFF1C1C1E.toInt()
 
+        // Pressed (tap) key background
+        val keyPressedColor = if (isDarkTheme) 0xFF5A5A60.toInt() else 0xFFB0B0B6.toInt()
+        val keyModifierPressedColor = if (isDarkTheme) 0xFF6E6E73.toInt() else 0xFF8E8E93.toInt()
 
-        // Draw keyboard background
+
+        // Draw keyboard background (flat, full width)
         paint.color = keyboardBackgroundColor
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
 
@@ -476,8 +512,23 @@ class CustomKeyboardView @JvmOverloads constructor(
                 // Define corner radius from settings
                 val cornerRadius = rectKeyHeight * settings.keyCornerRadiusFactor
 
-                // Draw key background
-                paint.color = if (key.isModifier == true) keyModifierBackgroundColor else keyBackgroundColor
+                // Draw key background with press highlight + iOS-style fade
+                val isPressed = activeKeys.containsValue(key)
+                val normalColor = if (key.isModifier == true) keyModifierBackgroundColor else keyBackgroundColor
+                val pressedColor = if (key.isModifier == true) keyModifierPressedColor else keyPressedColor
+
+                val fadeStart = fadingKeys[key]
+                val fadeProgress = when {
+                    isPressed -> 0f
+                    fadeStart == null -> 1f
+                    else -> ((now - fadeStart).toFloat() / KEY_FADE_DURATION_MS).coerceIn(0f, 1f)
+                }
+
+                paint.color = when {
+                    fadeProgress <= 0f -> pressedColor
+                    fadeProgress >= 1f -> normalColor
+                    else -> blendColors(pressedColor, normalColor, fadeProgress)
+                }
                 canvas.drawRoundRect(keyBounds, cornerRadius, cornerRadius, paint)
 
                 // --- Draw content if any ---

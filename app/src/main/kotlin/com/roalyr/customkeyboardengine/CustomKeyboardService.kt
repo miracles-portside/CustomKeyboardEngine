@@ -69,6 +69,30 @@ class CustomKeyboardService : InputMethodService() {
     )
 
     private var isTransparentMode = false
+    private var isEffectiveDark = false
+
+    // Apps that are always dark regardless of system theme.
+    // Add packages here that should force the keyboard dark.
+    private val forceDarkPackages = setOf<String>(
+        "com.termux",
+        "com.termux.api",
+        "org.telegram.messenger",
+        "org.telegram.plus",
+        "com.discord",
+        "com.google.android.youtube",
+        "com.zhiliaoapp.musically",       // TikTok
+        "com.instagram.android",
+        "com.netflix.mediaclient",
+        "com.spotify.music",
+        "com.microsoft.office.excel",
+        "com.microsoft.office.word"
+    )
+
+    // Apps that are always light (rarely needed).
+    private val forceLightPackages = setOf<String>(
+        // Add packages you want forced light here, e.g.:
+        // "com.example.someapp"
+    )
 
 
     companion object {
@@ -127,6 +151,22 @@ class CustomKeyboardService : InputMethodService() {
         isTransparentMode = shouldBeTransparent
         val target = shouldBeTransparent
         inputView?.post { applyTransparencyMode(target) }
+
+        // Per-app theme awareness
+        val themeOverride: Boolean? = when {
+            pkg in forceDarkPackages -> true
+            pkg in forceLightPackages -> false
+            else -> null  // follow system
+        }
+        val systemDark = (resources.configuration.uiMode and
+                android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        isEffectiveDark = themeOverride ?: systemDark
+        inputView?.post { applyTransparencyMode(target) }  // refresh nav bar
+        keyboardView?.setThemeOverride(themeOverride)
+        serviceKeyboardView?.setThemeOverride(themeOverride)
+        keyboardView?.invalidate()
+        serviceKeyboardView?.invalidate()
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
@@ -362,13 +402,7 @@ class CustomKeyboardService : InputMethodService() {
                 w.navigationBarColor = Color.TRANSPARENT
                 w.statusBarColor = Color.TRANSPARENT
             } else {
-                val solidBg = if ((resources.configuration.uiMode and
-                        android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
-                        android.content.res.Configuration.UI_MODE_NIGHT_YES) {
-                    0xFF1C1C1E.toInt()
-                } else {
-                    0xFFD1D1D6.toInt()
-                }
+                val solidBg = if (isEffectiveDark) 0xFF1C1C1E.toInt() else 0xFFD1D1D6.toInt()
                 w.setBackgroundDrawable(ColorDrawable(solidBg))
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                     w.isNavigationBarContrastEnforced = true
@@ -383,16 +417,12 @@ class CustomKeyboardService : InputMethodService() {
             keyboardView?.background = null
             serviceKeyboardView?.background = null
         } else {
-            // Restore opaque background when back in a normal app
-            val bg = if ((resources.configuration.uiMode and
-                    android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
-                    android.content.res.Configuration.UI_MODE_NIGHT_YES) {
-                0xFF1C1C1E.toInt()  // dark
-            } else {
-                0xFFD1D1D6.toInt()  // light
-            }
+            // Restore opaque background in normal apps
+            val bg = if (isEffectiveDark) 0xFF1C1C1E.toInt() else 0xFFD1D1D6.toInt()
             inputView?.setBackgroundColor(bg)
             (inputView?.parent as? ViewGroup)?.setBackgroundColor(bg)
+            keyboardView?.background = null
+            serviceKeyboardView?.background = null
         }
 
         keyboardView?.setKeyboardTransparent(transparent)

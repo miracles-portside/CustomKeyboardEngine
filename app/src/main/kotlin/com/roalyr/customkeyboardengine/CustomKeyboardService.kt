@@ -69,6 +69,7 @@ class CustomKeyboardService : InputMethodService() {
     )
 
     private var isTransparentMode = false
+    private var lastSpaceTime: Long = 0L
     private var isEffectiveDark = false
 
     // Apps that are always dark regardless of system theme.
@@ -139,6 +140,14 @@ class CustomKeyboardService : InputMethodService() {
         super.onConfigurationChanged(newConfig)
     }
 
+    private fun shouldAutoCapitalize(): Boolean {
+        val ic = currentInputConnection ?: return false
+        val before = ic.getTextBeforeCursor(2, 0)?.toString() ?: return true
+        if (before.isEmpty()) return true
+        val last = before.trimEnd().lastOrNull() ?: return true
+        return last == '.' || last == '!' || last == '?' || last == '\n'
+    }
+
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         if (!restarting) {
             reloadKeyboardLayouts()
@@ -167,6 +176,13 @@ class CustomKeyboardService : InputMethodService() {
         serviceKeyboardView?.setThemeOverride(themeOverride)
         keyboardView?.invalidate()
         serviceKeyboardView?.invalidate()
+
+        // Auto-capitalize first letter on keyboard open
+        if (shouldAutoCapitalize()) {
+            isShiftPressed = true
+            metaState = metaState or KeyEvent.META_SHIFT_ON
+        }
+        keyboardView?.updateMetaState(isShiftPressed, isCtrlPressed, isAltPressed, isCapsPressed)
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
@@ -597,8 +613,38 @@ class CustomKeyboardService : InputMethodService() {
                         } else {
                             metaState
                         }
+                        // Double-space → ". "
+                        if (code == KeyEvent.KEYCODE_SPACE) {
+                            val now = System.currentTimeMillis()
+                            val before = currentInputConnection?.getTextBeforeCursor(3, 0)?.toString() ?: ""
+                            val trimmed = before.trimEnd()
+                            val lastChar = trimmed.lastOrNull()
+                            val alreadySentenceEnd = lastChar == '.' || lastChar == '!' || lastChar == '?'
+                            if (now - lastSpaceTime < 400L
+                                && before.isNotEmpty()
+                                && before.last() == ' '
+                                && trimmed.isNotEmpty()
+                                && !alreadySentenceEnd) {
+                                currentInputConnection?.deleteSurroundingText(1, 0)
+                                currentInputConnection?.commitText(". ", 1)
+                                lastSpaceTime = 0L
+                                if (shouldAutoCapitalize()) {
+                                    isShiftPressed = true
+                                    metaState = metaState or KeyEvent.META_SHIFT_ON
+                                }
+                                keyboardView.updateMetaState(isShiftPressed, isCtrlPressed, isAltPressed, isCapsPressed)
+                                return
+                            }
+                            lastSpaceTime = now
+                        }
+
                         handleKey(code, label)
                         resetMetaStates()
+                        // Auto-capitalize the next sentence
+                        if (shouldAutoCapitalize()) {
+                            isShiftPressed = true
+                            metaState = metaState or KeyEvent.META_SHIFT_ON
+                        }
                         keyboardView.updateMetaState(isShiftPressed, isCtrlPressed, isAltPressed, isCapsPressed)
                     }
                 }

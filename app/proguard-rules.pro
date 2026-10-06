@@ -19,3 +19,18 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+# kotlinx.serialization
+-keepattributes *Annotation*, InnerClasses
+-dontnote kotlinx.serialization.**
+-keepclassmembers class **$$serializer { *; }
+-keepclasseswithmembers class * {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+
+# Keyboard data classes (loaded via reflection from JSON)
+-keep class com.roalyr.customkeyboardengine.CustomKeyboard { *; }
+-keep class com.roalyr.customkeyboardengine.Key { *; }
+-keep class com.roalyr.customkeyboardengine.KeyboardSettings { *; }
+-keep class com.roalyr.customkeyboardengine.CustomKeyboardClipboard { *; }
+-keep class com.roalyr.customkeyboardengine.Constants { *; }
+-keep class com.roalyr.customkeyboardengine.SettingsManager { *; }

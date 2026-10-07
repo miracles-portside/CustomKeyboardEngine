@@ -54,6 +54,7 @@ class CustomKeyboardService : InputMethodService() {
         updateClipboardMap() // Reflect updates in your clipboard keys
     }
     private var isClipboardOpen = false
+    private var currentThemeOverride: Boolean? = null
     private var isEmojiOpen = false
 
     private lateinit var settings: KeyboardSettings
@@ -176,6 +177,7 @@ class CustomKeyboardService : InputMethodService() {
             pkg in forceLightPackages -> false
             else -> null  // follow system
         }
+        currentThemeOverride = themeOverride
         val systemDark = (resources.configuration.uiMode and
                 android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
                 android.content.res.Configuration.UI_MODE_NIGHT_YES
@@ -241,6 +243,8 @@ class CustomKeyboardService : InputMethodService() {
         return layout?.let { (customKeyboard) ->
             keyboardView?.updateKeyboard(customKeyboard)
             keyboardView?.updateSettings(settings)
+            keyboardView?.setThemeOverride(currentThemeOverride)
+            serviceKeyboardView?.setThemeOverride(currentThemeOverride)
 
             // Initialize and synchronize clipboard keys (clipboard mode only)
             if (isClipboardOpen) {

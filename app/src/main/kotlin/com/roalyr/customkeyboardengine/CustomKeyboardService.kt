@@ -80,18 +80,7 @@ class CustomKeyboardService : InputMethodService() {
     // Apps that are always dark regardless of system theme.
     // Add packages here that should force the keyboard dark.
     private val forceDarkPackages = setOf<String>(
-        "com.termux",
-        "com.termux.api",
-        "org.telegram.messenger",
-        "org.telegram.plus",
-        "com.discord",
-        "com.google.android.youtube",
-        "com.zhiliaoapp.musically",       // TikTok
-        "com.instagram.android",
-        "com.netflix.mediaclient",
-        "com.spotify.music",
-        "com.microsoft.office.excel",
-        "com.microsoft.office.word"
+        "com.termux"
     )
 
     // Apps that are always light (rarely needed).

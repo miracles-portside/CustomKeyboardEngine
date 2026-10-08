@@ -65,6 +65,7 @@ class CustomKeyboardView @JvmOverloads constructor(
 
     // Transparency mode for home-screen search.
     private var isKeyboardTransparent = false
+    private var isCapsLockActive = false
     private var themeOverride: Boolean? = null  // null = follow system, true = dark, false = light
 
     private var repeatKeyRunnable: Runnable? = null
@@ -521,8 +522,13 @@ class CustomKeyboardView @JvmOverloads constructor(
 
                 // Draw key background with press highlight + iOS-style fade
                 val isPressed = activeKeys.containsValue(key)
-                val normalColor = if (key.isModifier == true) keyModifierBackgroundColor else keyBackgroundColor
+                var normalColor = if (key.isModifier == true) keyModifierBackgroundColor else keyBackgroundColor
                 val pressedColor = if (key.isModifier == true) keyModifierPressedColor else keyPressedColor
+
+                // Caps lock indicator: darken/lighten the shift key when caps is active
+                if (key.keyCode == 59 && isCapsLockActive) {
+                    normalColor = if (isDarkTheme) 0xFF48484A.toInt() else 0xFFD1D1D6.toInt()
+                }
 
                 val fadeStart = fadingKeys[key]
                 val fadeProgress = when {
@@ -692,6 +698,8 @@ class CustomKeyboardView @JvmOverloads constructor(
     }
 
     fun updateMetaState(shiftOn: Boolean, ctrlOn: Boolean, altOn: Boolean, capsLockOn: Boolean) {
+        isCapsLockActive = capsLockOn
+
         isShiftOn = shiftOn
         isCtrlOn = ctrlOn
         isAltOn = altOn

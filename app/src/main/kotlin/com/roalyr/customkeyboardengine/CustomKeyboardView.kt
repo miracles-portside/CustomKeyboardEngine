@@ -463,7 +463,7 @@ class CustomKeyboardView @JvmOverloads constructor(
 
         var keyboardBackgroundColor = if (isDarkTheme) 0xFF1C1C1E.toInt() else 0xFFD1D1D6.toInt()
         var keyBackgroundColor = if (isDarkTheme) 0xFF2C2C2E.toInt() else 0xFFFFFFFF.toInt()
-        var keyModifierBackgroundColor = if (isDarkTheme) 0xFF48484A.toInt() else 0xFFAEAEB2.toInt()
+        var keyModifierBackgroundColor = if (isDarkTheme) 0xFF2C2C2E.toInt() else 0xFFF2F2F7.toInt()
         if (isKeyboardTransparent) {
             keyboardBackgroundColor = Color.TRANSPARENT
             keyBackgroundColor = keyBackgroundColor.withAlphaFraction(0.95f)
@@ -480,7 +480,7 @@ class CustomKeyboardView @JvmOverloads constructor(
 
         // Pressed (tap) key background
         val keyPressedColor = if (isDarkTheme) 0xFF5A5A60.toInt() else 0xFFB0B0B6.toInt()
-        val keyModifierPressedColor = if (isDarkTheme) 0xFF6E6E73.toInt() else 0xFF8E8E93.toInt()
+        val keyModifierPressedColor = if (isDarkTheme) 0xFF48484A.toInt() else 0xFFD1D1D6.toInt()
 
 
         // Draw keyboard background (flat, full width)

@@ -464,7 +464,7 @@ class CustomKeyboardView @JvmOverloads constructor(
 
         var keyboardBackgroundColor = if (isDarkTheme) 0xFF1C1C1E.toInt() else 0xFFD1D1D6.toInt()
         var keyBackgroundColor = if (isDarkTheme) 0xFF2C2C2E.toInt() else 0xFFFFFFFF.toInt()
-        var keyModifierBackgroundColor = if (isDarkTheme) 0xFF2C2C2E.toInt() else 0xFFF2F2F7.toInt()
+        var keyModifierBackgroundColor = if (isDarkTheme) 0xFF3A3A3C.toInt() else 0xFFE5E5EA.toInt()
         if (isKeyboardTransparent) {
             keyboardBackgroundColor = Color.TRANSPARENT
             keyBackgroundColor = keyBackgroundColor.withAlphaFraction(0.95f)
@@ -481,7 +481,7 @@ class CustomKeyboardView @JvmOverloads constructor(
 
         // Pressed (tap) key background
         val keyPressedColor = if (isDarkTheme) 0xFF5A5A60.toInt() else 0xFFB0B0B6.toInt()
-        val keyModifierPressedColor = if (isDarkTheme) 0xFF48484A.toInt() else 0xFFD1D1D6.toInt()
+        val keyModifierPressedColor = if (isDarkTheme) 0xFF5A5A5E.toInt() else 0xFFC7C7CC.toInt()
 
 
         // Draw keyboard background (flat, full width)
@@ -527,7 +527,7 @@ class CustomKeyboardView @JvmOverloads constructor(
 
                 // Caps lock indicator: darken/lighten the shift key when caps is active
                 if (key.keyCode == 59 && isCapsLockActive) {
-                    normalColor = if (isDarkTheme) 0xFF48484A.toInt() else 0xFFD1D1D6.toInt()
+                    normalColor = if (isDarkTheme) 0xFF5A5A5E.toInt() else 0xFFC7C7CC.toInt()
                 }
 
                 val fadeStart = fadingKeys[key]

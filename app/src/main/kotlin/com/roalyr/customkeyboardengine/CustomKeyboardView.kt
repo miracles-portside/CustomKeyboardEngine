@@ -121,7 +121,14 @@ class CustomKeyboardView @JvmOverloads constructor(
         if (msg.what == MSG_LONGPRESS) {
             val key = msg.obj as? Key
             if (key != null && !isLongPressHandled) {
-                handleLongPress(key)
+                // Long-press SHIFT → toggle CAPS LOCK
+                if (key.keyCode == android.view.KeyEvent.KEYCODE_SHIFT_LEFT ||
+                    key.keyCode == android.view.KeyEvent.KEYCODE_SHIFT_RIGHT) {
+                    isLongPressHandled = true
+                    keyboardActionListener?.onKey(android.view.KeyEvent.KEYCODE_CAPS_LOCK, null)
+                } else {
+                    handleLongPress(key)
+                }
             }
             true
         } else {

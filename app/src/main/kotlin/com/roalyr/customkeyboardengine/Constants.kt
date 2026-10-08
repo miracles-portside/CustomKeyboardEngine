@@ -7,6 +7,7 @@ class Constants {
         const val LAYOUT_LANGUAGE_DEFAULT = "keyboard_en_default"
         const val LAYOUT_SERVICE_DEFAULT = "keyboard_service_default"
         const val LAYOUT_CLIPBOARD_DEFAULT = "keyboard_clipboard_default"
+        const val LAYOUT_NUMERIC_DEFAULT = "keyboard_numeric_default"
         const val LAYOUT_EMOJI_DEFAULT = "keyboard_emoji_default"
         const val REFERENCE_DEFAULT = "reference.md"
 

@@ -1,0 +1,81 @@
+{
+  "defaultKeyWidth": 25,
+  "defaultKeyHeight": 78,
+  "rows": [
+    {
+      "defaultKeyWidth": 25,
+      "keys": [
+        {
+          "label": "1"
+        },
+        {
+          "label": "2"
+        },
+        {
+          "label": "3"
+        },
+        {
+          "label": "-",
+          "isModifier": true
+        }
+      ]
+    },
+    {
+      "defaultKeyWidth": 25,
+      "keys": [
+        {
+          "label": "4"
+        },
+        {
+          "label": "5"
+        },
+        {
+          "label": "6"
+        },
+        {
+          "label": "+",
+          "isModifier": true
+        }
+      ]
+    },
+    {
+      "defaultKeyWidth": 25,
+      "keys": [
+        {
+          "label": "7"
+        },
+        {
+          "label": "8"
+        },
+        {
+          "label": "9"
+        },
+        {
+          "icon": "@drawable/ic_backspace",
+          "keyCode": 67,
+          "isModifier": true,
+          "isRepeatable": true
+        }
+      ]
+    },
+    {
+      "defaultKeyWidth": 25,
+      "keys": [
+        {
+          "label": ","
+        },
+        {
+          "label": "0"
+        },
+        {
+          "label": "."
+        },
+        {
+          "label": "Enter",
+          "keyCode": 66,
+          "isModifier": true
+        }
+      ]
+    }
+  ]
+}

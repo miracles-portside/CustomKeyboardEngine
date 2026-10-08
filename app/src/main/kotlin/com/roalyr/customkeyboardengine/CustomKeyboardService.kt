@@ -54,6 +54,7 @@ class CustomKeyboardService : InputMethodService() {
         updateClipboardMap() // Reflect updates in your clipboard keys
     }
     private var isClipboardOpen = false
+    private var isNumericOnly = false
     private var currentThemeOverride: Boolean? = null
     private var isEmojiOpen = false
 
@@ -73,6 +74,7 @@ class CustomKeyboardService : InputMethodService() {
     private var isTransparentMode = false
     private var lastSpaceTime: Long = 0L
     private var lastCommittedChar: Char? = null
+    private var lastNonSpaceChar: Char? = null
     private var isEffectiveDark = false
 
     // Apps that are always dark regardless of system theme.
@@ -150,7 +152,7 @@ class CustomKeyboardService : InputMethodService() {
     private fun shouldAutoCapitalize(): Boolean {
         // Prefer local state — the input connection is async and lags behind
         // by one keypress, which caused double-capitalization.
-        lastCommittedChar?.let { return isSentenceEnd(it) }
+        lastNonSpaceChar?.let { return isSentenceEnd(it) }
         val ic = currentInputConnection ?: return false
         val before = ic.getTextBeforeCursor(2, 0)?.toString() ?: return true
         if (before.isEmpty()) return true
@@ -159,8 +161,26 @@ class CustomKeyboardService : InputMethodService() {
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
+        // Detect numeric FIRST so we can skip the expensive layout reload
+        val inputType = info?.inputType ?: 0
+        val inputClass = inputType and android.text.InputType.TYPE_MASK_CLASS
+        isNumericOnly = (
+            inputClass == android.text.InputType.TYPE_CLASS_NUMBER ||
+            inputClass == android.text.InputType.TYPE_CLASS_PHONE ||
+            inputClass == android.text.InputType.TYPE_CLASS_DATETIME
+        )
+        if (isNumericOnly) {
+            isClipboardOpen = false
+        }
+
         if (!restarting) {
-            reloadKeyboardLayouts()
+            // Fast path: numeric layouts are static. Skip the JSON reload if
+            // already cached — only reload on cold start or when going back to text.
+            val needsInitialLoad = languageLayouts.isEmpty() && serviceLayouts.isEmpty()
+            val needsReload = needsInitialLoad || !isNumericOnly
+            if (needsReload) {
+                reloadKeyboardLayouts()
+            }
             recreateKeyboards()
         }
         super.onStartInputView(info, restarting)
@@ -235,8 +255,9 @@ class CustomKeyboardService : InputMethodService() {
         isFloating: Boolean
     ): CustomKeyboardView? {
         val layout = when {
-            isClipboardOpen -> getClipboardLayout()
+            isNumericOnly -> getNumericLayout()
             isEmojiOpen -> getEmojiLayout()
+            isClipboardOpen -> getClipboardLayout()
             else -> getLanguageLayout()
         }
 
@@ -381,6 +402,10 @@ class CustomKeyboardService : InputMethodService() {
 
     private fun getLanguageLayout(): Pair<CustomKeyboard, Boolean>? {
         return languageLayouts.getOrNull(currentLanguageLayoutIndex)
+    }
+
+    private fun getNumericLayout(): Pair<CustomKeyboard, Boolean>? {
+        return serviceLayouts[Constants.LAYOUT_NUMERIC_DEFAULT]
     }
 
     private fun getClipboardLayout(): Pair<CustomKeyboard, Boolean>? {
@@ -624,8 +649,8 @@ class CustomKeyboardService : InputMethodService() {
                 }
                 when (code) {
                     KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_SHIFT_RIGHT -> {
-                        metaState = toggleMetaState(metaState, KeyEvent.META_SHIFT_ON)
-                        isShiftPressed = !isShiftPressed
+                        // Tap shift = toggle caps lock (single-use shift removed)
+                        isCapsPressed = !isCapsPressed
                         keyboardView.updateMetaState(isShiftPressed, isCtrlPressed, isAltPressed, isCapsPressed)
                     }
                     KeyEvent.KEYCODE_CTRL_LEFT, KeyEvent.KEYCODE_CTRL_RIGHT -> {
@@ -643,11 +668,20 @@ class CustomKeyboardService : InputMethodService() {
                         keyboardView.updateMetaState(isShiftPressed, isCtrlPressed, isAltPressed, isCapsPressed)
                     }
                     else -> {
-                        modifiedMetaState = if (isCapsPressed) {
-                            metaState or KeyEvent.META_CAPS_LOCK_ON
+                        var combinedMeta = if (isCapsPressed) {
+                            metaState or KeyEvent.META_SHIFT_ON or KeyEvent.META_CAPS_LOCK_ON
                         } else {
                             metaState
                         }
+                        // Ctrl + arrow → select text (add SHIFT)
+                        val isArrow = code == KeyEvent.KEYCODE_DPAD_LEFT ||
+                                      code == KeyEvent.KEYCODE_DPAD_RIGHT ||
+                                      code == KeyEvent.KEYCODE_DPAD_UP ||
+                                      code == KeyEvent.KEYCODE_DPAD_DOWN
+                        if (isCtrlPressed && isArrow) {
+                            combinedMeta = combinedMeta or KeyEvent.META_SHIFT_ON
+                        }
+                        modifiedMetaState = combinedMeta
                         // Double-space → ". "
                         if (code == KeyEvent.KEYCODE_SPACE) {
                             val now = System.currentTimeMillis()
@@ -664,6 +698,7 @@ class CustomKeyboardService : InputMethodService() {
                                 currentInputConnection?.commitText(". ", 1)
                                 lastSpaceTime = 0L
                                 lastCommittedChar = '.'
+                                lastNonSpaceChar = '.'
                                 if (shouldAutoCapitalize()) {
                                     isShiftPressed = true
                                     metaState = metaState or KeyEvent.META_SHIFT_ON
@@ -677,7 +712,11 @@ class CustomKeyboardService : InputMethodService() {
 
                         handleKey(code, label)
                         // Track what we just committed so auto-cap is instant, not async
-                        lastCommittedChar = label?.firstOrNull()
+                        val committed = label?.firstOrNull()
+                        lastCommittedChar = committed
+                        if (committed != null && !committed.isWhitespace()) {
+                            lastNonSpaceChar = committed
+                        }
                         resetMetaStates()
                         // Auto-capitalize the next sentence
                         if (shouldAutoCapitalize()) {
@@ -706,29 +745,112 @@ class CustomKeyboardService : InputMethodService() {
     ////////////////////////////////////////////
     // Handle key events
     private fun handleKey(code: Int?, label: CharSequence?) {
-        //Log.d("Inject", "$code, $label, $modifiedMetaState")
-
         // Defensive: if the key has neither a usable code nor a label, do nothing.
         val isIgnorableCode = (code == null || code == Constants.KEYCODE_IGNORE)
         if (isIgnorableCode && label.isNullOrBlank()) return
 
+        // ============================================================
+        // Caps lock direct commit — bypasses app-level meta state bugs.
+        // Some apps ignore META_SHIFT_ON on injected letter events, so we
+        // just commit the uppercase text directly.
+        // ============================================================
+        if (isCapsPressed && !isCtrlPressed) {
+            val s = label?.toString().orEmpty()
+            if (s.length == 1 && s[0].isLetter()) {
+                val upper = s.uppercase()
+                currentInputConnection?.commitText(upper, 1)
+                lastCommittedChar = upper.firstOrNull()
+                lastNonSpaceChar = upper.firstOrNull()
+                return
+            }
+        }
+
+        // ============================================================
+        // Ctrl + arrow → direct selection via InputConnection
+        // (bypasses apps that ignore DPAD key events)
+        // ============================================================
+        if (isCtrlPressed) {
+            val ic = currentInputConnection
+            if (ic != null) {
+                when (code) {
+                    KeyEvent.KEYCODE_DPAD_LEFT -> {
+                        val sel = ic.getExtractedText(android.view.inputmethod.ExtractedTextRequest(), 0)
+                        if (sel != null) {
+                            val start = sel.selectionStart
+                            val end = sel.selectionEnd
+                            if (start != end) {
+                                // Shrink selection from right
+                                ic.setSelection(start, end - 1)
+                            } else {
+                                // Extend left
+                                if (start > 0) ic.setSelection(start - 1, end)
+                            }
+                        }
+                        return
+                    }
+                    KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                        val sel = ic.getExtractedText(android.view.inputmethod.ExtractedTextRequest(), 0)
+                        if (sel != null) {
+                            val start = sel.selectionStart
+                            val end = sel.selectionEnd
+                            val textLen = sel.text?.length ?: 0
+                            if (start != end) {
+                                ic.setSelection(start + 1, end)
+                            } else {
+                                if (end < textLen) ic.setSelection(start, end + 1)
+                            }
+                        }
+                        return
+                    }
+                }
+            }
+        }
+
+        // ============================================================
+        // Ctrl + letter shortcuts (works in EditText, WhatsApp, etc.)
+        // ============================================================
+        val labelStr = label?.toString().orEmpty()
+        if (isCtrlPressed && labelStr.length == 1) {
+            val ch = labelStr.lowercase()[0]
+            val action = when (ch) {
+                'c' -> android.R.id.copy
+                'v' -> android.R.id.paste
+                'x' -> android.R.id.cut
+                'a' -> android.R.id.selectAll
+                else -> 0
+            }
+            if (action != 0) {
+                currentInputConnection?.performContextMenuAction(action)
+                resetMetaStates()
+                keyboardView?.updateMetaState(isShiftPressed, isCtrlPressed, isAltPressed, isCapsPressed)
+                return
+            }
+        }
+
+        // Only apply SHIFT meta state if the key is actually a letter.
+        // Numbers and punctuation ignore shift, so auto-capitalize doesn't
+        // turn 1 into ! or , into <.
+        val isLetter = labelStr.length == 1 && labelStr[0].isLetter()
+        val isArrowKey = code == KeyEvent.KEYCODE_DPAD_LEFT ||
+                         code == KeyEvent.KEYCODE_DPAD_RIGHT ||
+                         code == KeyEvent.KEYCODE_DPAD_UP ||
+                         code == KeyEvent.KEYCODE_DPAD_DOWN
+        val applyMeta = isLetter || isArrowKey
+        val effectiveMetaState = if (applyMeta) modifiedMetaState else 0
+
         // Manually apply metaState to the key event if key code is written in layout.
         if (code != null && code != Constants.KEYCODE_IGNORE) {
-            injectKeyEvent(code, modifiedMetaState)
+            injectKeyEvent(code, effectiveMetaState)
         } else {
-            // If no key codes for a key - attempt to get key code from label.
-            if (label != null) { // Check if label is not null
+            if (label != null) {
                 val keyLabel = label.toString()
-                //Log.d("Inject", "$keyLabel, $modifiedMetaState")
-
                 val codeFromLabel = getKeycodeFromLabel(keyLabel)
 
                 if (codeFromLabel != null) {
-                    //Log.d("Inject", "$codeFromLabel, $modifiedMetaState")
-                    injectKeyEvent(codeFromLabel, modifiedMetaState)
+                    injectKeyEvent(codeFromLabel, effectiveMetaState)
                 } else {
-                    // If no key code found, commit label as text "as is".
-                    val finalKeyLabel = if (isShiftPressed || isCapsPressed) {
+                    // Commit label as text. Only uppercase letters when shift is on.
+                    val finalKeyLabel = if ((isShiftPressed || isCapsPressed) && isLetter) {
                         resetMetaStates()
                         keyboardView?.updateMetaState(isShiftPressed, isCtrlPressed, isAltPressed, isCapsPressed)
                         keyLabel.uppercase()
@@ -737,8 +859,6 @@ class CustomKeyboardService : InputMethodService() {
                     }
                     currentInputConnection.commitText(finalKeyLabel, 1)
                 }
-            } else {
-                // Handle cases where label is null (e.g., keys with icons)
             }
         }
     }
